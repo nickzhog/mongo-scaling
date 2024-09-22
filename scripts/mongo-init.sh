@@ -50,6 +50,14 @@ sh.addShard("rs-shard2/mongodb-shard2-master:27017")
 sh.enableSharding("somedb");
 sh.shardCollection("somedb.helloDoc", { "name" : "hashed" } )
 EOF
+# router2
+docker compose exec -T mongos_router2 mongosh --port 27020 --quiet <<EOF
+sh.addShard("rs-shard1/mongodb-shard1-master:27017")
+sh.addShard("rs-shard2/mongodb-shard2-master:27017")
+sh.enableSharding("somedb");
+sh.shardCollection("somedb.helloDoc", { "name" : "hashed" } )
+EOF
+
 
 # Наполнение данными
 docker compose exec -T mongos_router mongosh --port 27020 --quiet <<EOF
@@ -65,6 +73,24 @@ EOF
 
 # отображение количества данных в второй реплике первого шарда
 docker compose exec -T mongodb-shard1-replica2 mongosh --port 27019 --quiet <<EOF
+use somedb
+db.helloDoc.countDocuments()
+EOF
+
+# Наполнение данными через другой роутер
+docker compose exec -T mongos_router2 mongosh --port 27020 --quiet <<EOF
+use somedb
+for(var i = 0; i < 1000; i++) db.helloDoc.insertOne({age:i, name:"ly"+i})
+EOF
+
+# отображение количества данных во втором шарде в реплике 1
+docker compose exec -T mongodb-shard2-replica1 mongosh --port 27018 --quiet <<EOF
+use somedb
+db.helloDoc.countDocuments()
+EOF
+
+# отображение количества данных в первом шарде
+docker compose exec -T mongodb-shard1-master mongosh --port 27017 --quiet <<EOF
 use somedb
 db.helloDoc.countDocuments()
 EOF

@@ -17,6 +17,7 @@ services:
     environment:
       MONGODB_URL: "mongodb://mongos_router"
       MONGODB_DATABASE_NAME: "somedb"
+      REDIS_URL: "<todo>"
 
   configSrv:
     image: mongo:latest
@@ -33,6 +34,21 @@ services:
       interval: 5s
       start_period: 10s
 
+  configSrv2:
+    image: mongo:latest
+    container_name: configSrv2
+    restart: always
+    ports:
+      - "28017:27017"
+    networks:
+      app-network:
+        ipv4_address: 173.17.0.122
+    command: [ "--configsvr", "--replSet", "config_server", "--bind_ip_all", "--port", "27017" ]
+    healthcheck:
+      test: [ "CMD", "mongo", "--eval", "db.adminCommand('ping')" ]
+      interval: 5s
+      start_period: 10s
+
   mongos_router:
     image: mongo:latest
     container_name: mongos_router
@@ -42,7 +58,22 @@ services:
     networks:
       app-network:
         ipv4_address: 173.17.0.11
-    command: [ "mongos", "--configdb", "config_server/configSrv:27017", "--bind_ip_all", "--port", "27020" ]
+    command: [ "mongos", "--configdb", "config_server/configSrv:27017,configSrv2:27017", "--bind_ip_all", "--port", "27020" ]
+    healthcheck:
+      test: [ "CMD", "mongo", "--eval", "db.adminCommand('ping')" ]
+      interval: 5s
+      start_period: 10s
+
+  mongos_router2:
+    image: mongo:latest
+    container_name: mongos_router2
+    restart: always
+    ports:
+      - "28020:27020"
+    networks:
+      app-network:
+        ipv4_address: 173.17.0.111
+    command: [ "mongos", "--configdb", "config_server/configSrv:27017,configSrv2:27017", "--bind_ip_all", "--port", "27020" ]
     healthcheck:
       test: [ "CMD", "mongo", "--eval", "db.adminCommand('ping')" ]
       interval: 5s
